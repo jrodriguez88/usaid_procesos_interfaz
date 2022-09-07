@@ -14,21 +14,22 @@
 
 #library(tidyverse)
 #library(rstudioapi) 
-library(foreach)
-library(parallel)
-library(doParallel)
-library(dplyr)
-library(tidyr)
-library(tibble)
-library(purrr)
-library(readr)
-library(lubridate)
-library(stringr)
-library(magrittr)
-library(data.table)
-
-##Conect geoserver
-library(raster)
+#library(foreach)
+#library(parallel)
+#library(doParallel)
+#library(dplyr)
+#library(tidyr)
+#library(tibble)
+#library(purrr)
+#library(readr)
+#library(lubridate)
+#library(stringr)
+#library(magrittr)
+#library(data.table)
+#
+###Conect geoserver
+#library(raster)
+##library(furrr)
 options(warn = 1)
 
 
@@ -60,7 +61,7 @@ dir_inputs_soil <- "inputs/soils/"
 dir_inputs_cultivar <- "inputs/cultivars/"
 
 # Source oryza-aclimate functions
-walk(list.files(dir_scripts, pattern = ".R$", full.names = T), ~source(.x))
+walk(list.files(dir_scripts, pattern = ".R$", full.names = T), ~ source(.x))
 
 # ISO code / codigo iso de cada configuracion --- define el nombre del archivo de salida
 ## Location vars/ data / resampling scenaries / planting dates
@@ -68,14 +69,19 @@ location <- load_coordinates(dir_inputs_setup)
 climate_scenaries <- load_all_climate(dir_inputs_climate)[-100]
 
 planting_details <- read_csv(paste0(dir_inputs_setup, "planting_details.csv"), show_col_types = F) %>%
-  dplyr::select(name, crop) %>%  pivot_wider(names_from = name, values_from = crop)
+  dplyr::select(name, all_of(crop)) %>%  pivot_wider(names_from = name, values_from = all_of(crop))
 
 # Definir fecha inicial de simulacion/  
 #En este caso la define automaticamente de la fecha inicial de los escenarios climaticos
 initial_date  <- climate_scenaries[[1]]$date[[1]] + days(15)
 
-input_dates <- make_sim_dates(initial_date, planting_before = 15, number_days = 30, freq_sim = 3)
+input_dates <- make_sim_dates(initial_date, planting_before = 15, number_days = 10, freq_sim = 3)
 sim_number <- length(input_dates$start_date)  # It depends of planting window form forecast
+
+## Parallel computing 
+ncores <- detectCores()-2
+if(ncores > sim_number){ncores <- sim_number}
+#plan(multisession, workers = ncores)
 
 
 ### RUN DSSAT
@@ -108,7 +114,7 @@ wth_station <- paste0("CIAT", sprintf("%.4d", 1:treatments_number))
 
 
 irri <- ifelse(planting_details$IRR == "YES", T, F)
-fert_in <- get_fertilizer(planting_details)
+fert_in <- get_fertilizer(crop, planting_details, dir_inputs_setup, lat, long)
 
 X_param <- dir_run %>% unlist() %>% enframe(name = NULL, value = "path") %>%
   mutate(id_name = id_name,
@@ -129,14 +135,12 @@ pmap(X_param, write_exp_dssat)
 
 
 #tictoc::tic()
-ncores <- detectCores()-2
-if(ncores > sim_number){ncores <- sim_number}
+
+
 registerDoParallel(ncores)
-
-
 sim_data  <- foreach(
   i = dir_run, 
-  .export=c('crop', 'execute_dssat', 'write_wth_file', 'wth_station', 'climate_scenaries', 'lat', 'long', 'read_summary', 'read_wth_out'), 
+  .export=c('crop', 'execute_dssat', 'write_wth_file', 'wth_station', 'climate_scenaries', 'lat', 'long', 'read_summary', 'read_wth_out', 'crop_name_setup'), 
   .packages=c('dplyr', 'stringr', 'readr', 'lubridate', 'purrr', 'data.table')) %dopar% {
   map2(climate_scenaries, wth_station, ~write_wth_file(.x, i, .y, lat, long))
   execute_dssat(i, crop) 

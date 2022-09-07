@@ -8,7 +8,10 @@
 ## read summary dssat - 'Summary.OUT' file
 read_summary <- function(dir_run){
   
-  summary_out <- read_table(paste0(dir_run, 'Summary.OUT'), skip = 3 , na = "*******", col_types = cols()) %>%
+  var_names <- read_lines(paste0(dir_run, 'Summary.OUT'))[4] %>% 
+    str_sub(5, -1) %>% str_split("\\s{1,}") %>% pluck(1)
+  
+  summary_out <-  fread(paste0(dir_run, 'Summary.OUT'), header = F, col.names = var_names) %>%
     dplyr::mutate(yield_0 = HWAM,
                   d_dry = as.numeric(as.Date(as.character(MDAT), format("%Y%j")) - as.Date(as.character(PDAT), format("%Y%j"))),
                   prec_acu = PRCP,
@@ -33,7 +36,7 @@ cal_summ <- function(data){
   
 }
 
-data_wth <- map(skip, ~fread(file, skip = .x)) %>% 
+data_wth <- suppressWarnings(map(skip, ~fread(file, skip = .x))) %>% 
   map(cal_summ)
 
 
@@ -66,11 +69,11 @@ extract_summary_aclimate <- function(data, var){
   
   
 
-  data <- dplyr::select(data, var) %>% drop_na()
+  data <- dplyr::select(data, all_of(var)) %>% drop_na()
   
   
   data <- data %>%
-    summarise(across(var, .fns =list(avg = mean, 
+    summarise(across(all_of(var), .fns =list(avg = mean, 
                         median = median, 
                         min = min, 
                         max = max, 
