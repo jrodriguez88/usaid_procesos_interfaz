@@ -151,13 +151,13 @@ sim_data  <- foreach(
 closeAllConnections()
 
 #tictoc::toc()
-
+safe_read_summary <- purrr::possibly(extract_summary_aclimate, NULL)
 
 outputs_df1 <- map2(.x = map(sim_data, "summary"),
                    .y = input_dates$planting_date, 
                    function(x,y){
                      map(c('yield_0', 'd_dry', 'prec_acu', 'bio_acu'), 
-                         ~extract_summary_aclimate(x, .x)) %>% 
+                         ~safe_read_summary(x, .x)) %>% compact() %>%
                        bind_rows() %>% 
                        tidy_descriptive(., crop, soil, cultivar[2], y, y)}) %>% 
   compact %>% bind_rows()
@@ -166,7 +166,7 @@ outputs_df2 <- map2(.x = map(sim_data, "weather"),
      .y = input_dates$planting_date, 
      function(x,y){
        map(c('t_max_acu', 't_min_acu'), 
-           ~extract_summary_aclimate(x, .x)) %>% 
+           ~safe_read_summary(x, .x)) %>% compact() %>%
          bind_rows() %>% 
          tidy_descriptive(., crop, soil, cultivar[2], y, y)}) %>% 
   compact %>% bind_rows()
@@ -174,7 +174,7 @@ outputs_df2 <- map2(.x = map(sim_data, "weather"),
 
 #execute_dssat(dir_run[[3]])
 
-write_csv(bind_rows(outputs_df1, outputs_df2), paste0("outputs/", id, ".csv"))
+write_csv(bind_rows(outputs_df1, outputs_df2) %>% drop_na, paste0("outputs/", id, ".csv"))
 
 #tictoc::toc()
 

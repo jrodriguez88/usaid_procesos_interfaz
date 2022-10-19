@@ -10,14 +10,13 @@ make_dir_run <- function(dir_run_main, sim_number){
   
   
 #  require(stringr)
-  dir <- paste0(dir_run_main, sim_number, '/')
-#  dir <- stringr::str_replace(dir, "ñ", "n")
+  dir <- file.path(dir_run_main, sim_number, '/')
+
   
   if (!dir.exists(dir)) { 
     
     dir.create(dir, showWarnings = F, recursive = TRUE, mode = "777")
-    # system('chmod 777 *.*')
-    # paste0(dir_base, region, '/', cultivar,  '/', select_day)
+
     
   }
   
@@ -136,6 +135,9 @@ date_for_dssat <- function(date) {
 
 # Write Fertilizer table
 create_fert_dssat <- function(urea, dap, apps_dap = c(1, 40), urea_split = c(1/3, 2/3), dap_split = c(1, 0)){
+  
+  #dap = Days after Planting
+  #"dap" = Diammonium phosphate (DAP)  
   
   
   base_tb <- bind_rows(tibble(dap = apps_dap, fert = "dap", value = dap * dap_split) %>% 
